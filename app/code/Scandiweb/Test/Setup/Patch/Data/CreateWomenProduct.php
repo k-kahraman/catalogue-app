@@ -22,7 +22,6 @@ use Magento\Framework\Exception\CouldNotSaveException;
 use Magento\Framework\Exception\InputException;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Exception\NoSuchEntityException;
-use Magento\Framework\Setup\ModuleDataSetupInterface;
 use Magento\Framework\Setup\Patch\DataPatchInterface;
 use Magento\Framework\Validation\ValidationException;
 use Magento\InventoryApi\Api\Data\SourceItemInterface;
@@ -57,11 +56,6 @@ class CreateWomenProduct implements DataPatchInterface
      * @var LoggerInterface;
      */
     protected LoggerInterface $logger;
-
-    /**
-     * @var ModuleDataSetupInterface
-     */
-    protected ModuleDataSetupInterface $setup;
 
     /**
      * @var ProductInterfaceFactory
@@ -111,7 +105,6 @@ class CreateWomenProduct implements DataPatchInterface
     /**
      * Migration patch constructor.
      *
-     * @param ModuleDataSetupInterface $setup,
      * @param ProductInterfaceFactory $productInterfaceFactory,
      * @param ProductRepositoryInterface $productRepository,
      * @param State $appState,
@@ -124,7 +117,6 @@ class CreateWomenProduct implements DataPatchInterface
      * @param CategoryCollectionFactory $categoryCollectionFactory
      */
     public function __construct(
-        ModuleDataSetupInterface $setup,
         ProductInterfaceFactory $productInterfaceFactory,
         ProductRepositoryInterface $productRepository,
         State $appState,
@@ -139,7 +131,6 @@ class CreateWomenProduct implements DataPatchInterface
         $this->appState = $appState;
         $this->productInterfaceFactory = $productInterfaceFactory;
         $this->productRepository = $productRepository;
-        $this->setup = $setup;
         $this->eavSetup = $eavSetup;
         $this->storeManager = $storeManager;
         $this->sourceItem = $sourceItem;
@@ -182,10 +173,10 @@ class CreateWomenProduct implements DataPatchInterface
             ->setPrice(44.49)
             ->setVisibility(Visibility::VISIBILITY_BOTH)
             ->setStatus(Status::STATUS_ENABLED)
-            ->setStockData(['use_config_manage_stock' => 0, 'is_qty_decimal' => 0, 'is_in_stock' => 1]);
+            ->setStockData(['use_config_manage_stock' => 1, 'is_qty_decimal' => 0, 'is_in_stock' => 1]);
         $product = $this->productRepository->save($product);
 
-        $sourceItem = $this->source$sourceItem->create();
+        $sourceItem = $this->sourceItem->create();
         $sourceItem->setSourceCode('default');
         $sourceItem->setQuantity(20);
         $sourceItem->setSku($product->getSku());
@@ -195,16 +186,12 @@ class CreateWomenProduct implements DataPatchInterface
         $this->sourceItemsSaveInterface->execute($this->sourceItems);
 
         // Checkes whether the category women exist
-        try 
-        {
+        try {
             $categoryIDs = $this->categoryCollectionFactory->create()->addAttributeToFilter('name', 'Women')->getAllIds();
-            if (count($categoryIDs))
-            {
+            if (count($categoryIDs)) {
                 $this->categoryLink->assignProductToCategories($product->getSku(), $categoryIDs);
             }
-        } 
-        catch (NoSuchEntityException $ex) 
-        {
+        } catch (NoSuchEntityException $ex) {
             $this->logger->critical($ex);
         }
     }
