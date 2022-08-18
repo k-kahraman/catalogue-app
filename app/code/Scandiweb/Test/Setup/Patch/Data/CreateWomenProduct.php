@@ -29,7 +29,7 @@ use Magento\InventoryApi\Api\Data\SourceItemInterface;
 use Magento\InventoryApi\Api\Data\SourceItemInterfaceFactory;
 use Magento\InventoryApi\Api\SourceItemsSaveInterface;
 use Magento\Store\Model\StoreManagerInterface;
-use \Psr\Log\LoggerInterface;
+use Psr\Log\LoggerInterface;
 use Magento\Catalog\Model\ResourceModel\Category\CollectionFactory as CategoryCollectionFactory;
 
 /**
@@ -54,15 +54,9 @@ class CreateWomenProduct implements DataPatchInterface
     }
 
     /**
-     * @var \Magento\Catalog\Api\CategoryRepositoryInterface
+     * @var LoggerInterface;
      */
-    //private CategoryRepositoryInterface $categoryRepository;
-
-    /**
-     * @var \Psr\Log\LoggerInterface;
-     */
-    private LoggerInterface $logger;
-
+    protected LoggerInterface $logger;
 
     /**
      * @var ModuleDataSetupInterface
@@ -92,7 +86,7 @@ class CreateWomenProduct implements DataPatchInterface
     /**
      * @var SourceItemInterfaceFactory
      */
-    protected SourceItemInterfaceFactory $sourceItemFactory;
+    protected SourceItemInterfaceFactory $sourceItem;
 
     /**
      * @var SourceItemsSaveInterface
@@ -117,15 +111,17 @@ class CreateWomenProduct implements DataPatchInterface
     /**
      * Migration patch constructor.
      *
-     * @param ModuleDataSetupInterface $setup
-     * @param ProductInterfaceFactory $productInterfaceFactory
-     * @param ProductRepositoryInterface $productRepository
-     * @param SourceItemInterfaceFactory $sourceItemFactory
-     * @param SourceItemsSaveInterface $sourceItemsSaveInterface
-     * @param State $appState
-     * @param StoreManagerInterface $storeManager
-     * @param EavSetup $eavSetup
-     * @param CategoryLinkManagementInterface $categoryLink
+     * @param ModuleDataSetupInterface $setup,
+     * @param ProductInterfaceFactory $productInterfaceFactory,
+     * @param ProductRepositoryInterface $productRepository,
+     * @param State $appState,
+     * @param StoreManagerInterface $storeManager,
+     * @param EavSetup $eavSetup,
+     * @param SourceItemInterfaceFactory $sourceItem,
+     * @param SourceItemsSaveInterface $sourceItemsSaveInterface,
+     * @param CategoryLinkManagementInterface $categoryLink,
+     * @param LoggerInterface $logger,
+     * @param CategoryCollectionFactory $categoryCollectionFactory
      */
     public function __construct(
         ModuleDataSetupInterface $setup,
@@ -134,7 +130,7 @@ class CreateWomenProduct implements DataPatchInterface
         State $appState,
         StoreManagerInterface $storeManager,
         EavSetup $eavSetup,
-        SourceItemInterfaceFactory $sourceItemFactory,
+        SourceItemInterfaceFactory $sourceItem,
         SourceItemsSaveInterface $sourceItemsSaveInterface,
         CategoryLinkManagementInterface $categoryLink,
         LoggerInterface $logger,
@@ -146,10 +142,9 @@ class CreateWomenProduct implements DataPatchInterface
         $this->setup = $setup;
         $this->eavSetup = $eavSetup;
         $this->storeManager = $storeManager;
-        $this->sourceItemFactory = $sourceItemFactory;
+        $this->sourceItem = $sourceItem;
         $this->sourceItemsSaveInterface = $sourceItemsSaveInterface;
         $this->categoryLink = $categoryLink;
-        //$this->categoryRepository = $categoryRepository;
         $this->logger = $logger;
         $this->categoryCollectionFactory = $categoryCollectionFactory;
     }
@@ -176,8 +171,6 @@ class CreateWomenProduct implements DataPatchInterface
         if ($product->getIdBySku('high-heel-shoe')) {
             return;
         }
-
-        $this->setup->getConnection()->startSetup();
         $attributeSetId = $this->eavSetup->getAttributeSetId(Product::ENTITY, 'Default');
         $websiteIDs = [$this->storeManager->getStore()->getWebsiteId()];
         $product->setTypeId(Type::TYPE_SIMPLE)
@@ -192,25 +185,27 @@ class CreateWomenProduct implements DataPatchInterface
             ->setStockData(['use_config_manage_stock' => 0, 'is_qty_decimal' => 0, 'is_in_stock' => 1]);
         $product = $this->productRepository->save($product);
 
-        $sourceItemFactory = $this->sourceItemFactory->create();
-        $sourceItemFactory->setSourceCode('default');
-        $sourceItemFactory->setQuantity(20);
-        $sourceItemFactory->setSku($product->getSku());
-        $sourceItemFactory->setStatus(SourceItemInterface::STATUS_IN_STOCK);
-        $this->sourceItems[] = $sourceItemFactory;
+        $sourceItem = $this->source$sourceItem->create();
+        $sourceItem->setSourceCode('default');
+        $sourceItem->setQuantity(20);
+        $sourceItem->setSku($product->getSku());
+        $sourceItem->setStatus(SourceItemInterface::STATUS_IN_STOCK);
+        $this->sourceItems[] = $sourceItem;
 
         $this->sourceItemsSaveInterface->execute($this->sourceItems);
 
         // Checkes whether the category women exist
-        try {
-            $categoryID = $this->categoryCollectionFactory->create()->addAttributeToFilter('name', 'Women')->getAllIds();
-            if (count($categoryID))
-                $this->categoryLink->assignProductToCategories($product->getSku(), $categoryID);
-
-        } catch (NoSuchEntityException $ex) {
+        try 
+        {
+            $categoryIDs = $this->categoryCollectionFactory->create()->addAttributeToFilter('name', 'Women')->getAllIds();
+            if (count($categoryIDs))
+            {
+                $this->categoryLink->assignProductToCategories($product->getSku(), $categoryIDs);
+            }
+        } 
+        catch (NoSuchEntityException $ex) 
+        {
             $this->logger->critical($ex);
         }
-
-        $this->setup->getConnection()->endSetup();
     }
 }
